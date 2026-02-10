@@ -1,0 +1,5 @@
+https://huggingface.co/spaces/enzostvs/deepsite
+https://huggingface.co/spaces/akhaliq/anycoder
+https://huggingface.co/spaces/Qwen/Qwen3-Coder-WebDev
+https://huggingface.co/spaces/Qwen/Qwen2.5-Coder-Artifacts
+https://huggingface.co/spaces/UCSB-SURFI/VulnLLM-R
