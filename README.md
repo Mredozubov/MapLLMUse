@@ -1,2 +1,2 @@
 # MapLLMUse
-Mapping LLM Use in Software Development
+Characterizing AI and human risk when coding using tools such as BigVul and CWE.
