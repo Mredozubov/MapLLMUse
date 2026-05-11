@@ -4,121 +4,146 @@ import requests
 import io
 import os
 import argparse
+import re
 
-# --- CONFIGURATION ---
+# ----------------------------
+# CONFIG
+# ----------------------------
 REFERENCE_ZIP = 'project_data.zip'
 REFERENCE_CSV = 'all_c_cpp_release2.0.csv'
 
-# Setup Command Line Interface
-parser = argparse.ArgumentParser(description="CISC 4900: Final Risk Counter & Live Scanner")
-parser.add_argument("--target", help="URL of the GitHub Repo or Website to scan", required=True)
+# ----------------------------
+# CWE + FUNCTION PATTERNS (ENHANCED)
+# ----------------------------
+CWE_PATTERNS = {
+    "buffer overflow": 5,
+    "sql injection": 5,
+    "command injection": 5,
+    "xss": 4,
+    "cross site scripting": 4,
+    "use after free": 5,
+    "race condition": 4,
+    "integer overflow": 3,
+    "path traversal": 4
+}
+
+DANGEROUS_FUNCTIONS = {
+    r"\bstrcpy\b": 5,
+    r"\bstrcat\b": 4,
+    r"\bgets\b": 5,
+    r"\bsprintf\b": 4,
+    r"\bsystem\s*\(": 5,
+    r"\bpopen\s*\(": 4,
+    r"\bmemcpy\b": 3,
+    r"\beval\s*\(": 5
+}
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--target", required=True)
 args = parser.parse_args()
 
+
+# ----------------------------
+# ANALYSIS ENGINE
+# ----------------------------
+def analyze_content(content):
+    content = content.lower()
+    findings = []
+
+    # CWE keyword scan
+    for k, score in CWE_PATTERNS.items():
+        if k in content:
+            findings.append((k, score))
+
+    # regex function scan
+    for pattern, score in DANGEROUS_FUNCTIONS.items():
+        matches = re.findall(pattern, content)
+        if matches:
+            findings.append((pattern, score * len(matches)))
+
+    return findings
+
+
+# ----------------------------
+# GITHUB SCANNER
+# ----------------------------
+def scan_github(url):
+    print("Analyzing GitHub repository...")
+
+    zip_url = url.rstrip('/') + "/archive/refs/heads/main.zip"
+    r = requests.get(zip_url)
+
+    if r.status_code != 200:
+        zip_url = url.rstrip('/') + "/archive/refs/heads/master.zip"
+        r = requests.get(zip_url)
+
+    if r.status_code != 200:
+        raise Exception("Failed to download repo")
+
+    results = []
+
+    with zipfile.ZipFile(io.BytesIO(r.content)) as z:
+        for file in z.namelist():
+
+            if file.endswith(('.c', '.cpp', '.h', '.hpp', '.js', '.py')):
+                try:
+                    with z.open(file) as f:
+                        content = f.read().decode('utf-8', errors='ignore')
+                        results.extend(analyze_content(content))
+                except:
+                    pass
+
+    return results
+
+
+# ----------------------------
+# WEBSITE SCANNER
+# ----------------------------
+def scan_web(url):
+    r = requests.get(url, timeout=10)
+    return analyze_content(r.text)
+
+
+# ----------------------------
+# MAIN
+# ----------------------------
 def main():
-    print(f"CISC 4900: Security Risk Analysis")
-    print(f"Target: {args.target}")
-    
-    try:
-        # 1. LOAD REFERENCE DATA (The "Brain")
-        known_risks = set()
-        if not os.path.exists(REFERENCE_ZIP):
-            raise FileNotFoundError(f"Reference file '{REFERENCE_ZIP}' not found in current directory.")
+    print("CISC 4900: Security Risk Analysis")
+    print("Target:", args.target)
 
-        with zipfile.ZipFile(REFERENCE_ZIP, 'r') as z:
-            with z.open(REFERENCE_CSV) as f:
-                # usecols and latin1 for memory and character safety
-                ref_df = pd.read_csv(f, encoding='latin1', usecols=['vulnerability_classification'])
-                known_risks.update(ref_df['vulnerability_classification'].dropna().unique().tolist())
+    target = args.target if args.target.startswith("http") else "https://" + args.target
 
-        print(f"Reference Library Loaded: {len(known_risks)} unique risk patterns.")
-        found_risks = []
+    if "github.com" in target:
+        findings = scan_github(target)
+    else:
+        findings = scan_web(target)
 
-        # 2. FETCH AND ANALYZE TARGET
-        target_url = args.target if args.target.startswith("http") else f"https://{args.target}"
-        
-        if "github.com" in target_url:
-            print("Analyzing GitHub Repository Source Code...")
-            # Attempt to grab the ZIP version of the repo
-            zip_url = target_url.rstrip('/') + "/archive/refs/heads/main.zip"
-            r = requests.get(zip_url)
-            if r.status_code != 200:
-                zip_url = target_url.rstrip('/') + "/archive/refs/heads/master.zip"
-                r = requests.get(zip_url)
+    if not findings:
+        print("\nNo vulnerabilities detected.")
+        return
 
-            with zipfile.ZipFile(io.BytesIO(r.content)) as repo_zip:
-                for file_name in repo_zip.namelist():
-                    # Scan code files specifically
-                    if file_name.endswith(('.c', '.cpp', '.h', '.hpp', '.js')):
-                        with repo_zip.open(file_name) as code_file:
-                            content = code_file.read().decode('latin1').lower()
-                            for risk in known_risks:
-                                risk_str = str(risk).lower()
-                                if risk_str in content:
-                                    found_risks.extend([risk] * content.count(risk_str))
-        else:
-            print("Analyzing Website Content...")
-            response = requests.get(target_url, timeout=10)
-            content = response.text.lower()
-            for risk in known_risks:
-                risk_str = str(risk).lower()
-                if risk_str in content:
-                    found_risks.extend([risk] * content.count(risk_str))
+    df = pd.DataFrame(findings, columns=["Vulnerability", "Score"])
+    summary = df.groupby("Vulnerability").sum().sort_values("Score", ascending=False).head(10)
 
-        # 3. GENERATE RESULTS
-        df_results = pd.DataFrame(found_risks, columns=['vulnerability_classification'])
-        top_10 = df_results['vulnerability_classification'].value_counts().head(10)
+    print("\nTOP SECURITY RISKS:")
+    print(summary)
 
-        # Output to Terminal
-        print("\nTOP 10 IDENTIFIED SECURITY RISKS:")
-        if not top_10.empty:
-            print(top_10)
-        else:
-            print("No matching risks found.")
+    html = f"""
+    <html>
+    <head><title>Security Report</title></head>
+    <body>
+        <h2>Security Scan Report</h2>
+        <p><b>Target:</b> {target}</p>
+        {summary.to_html()}
+    </body>
+    </html>
+    """
 
-        # 4. GENERATE HTML REPORT
-        report_df = top_10.to_frame().reset_index()
-        report_df.columns = ['Vulnerability Type', 'Occurrences Found']
-        
-        html_template = f"""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-            <title>Security Risk Report</title>
-        </head>
-        <body class="bg-light">
-            <div class="container py-5">
-                <div class="card shadow-lg border-0">
-                    <div class="card-header bg-primary text-white py-3">
-                        <h2 class="mb-0 text-center">CISC 4900 Security Risk Report</h2>
-                    </div>
-                    <div class="card-body p-4">
-                        <p class="lead"><strong>Scanned Target:</strong> <a href="{target_url}" target="_blank">{target_url}</a></p>
-                        <hr>
-                        <h4 class="text-dark mb-3">Vulnerability Assessment Findings</h4>
-                        {report_df.to_html(index=False, classes='table table-hover table-striped mt-4 border')}
-                        <div class="alert alert-info mt-4">
-                            <strong>Note:</strong> These results are generated by cross-referencing live code against the 
-                            BigVul and Primeval datasets.
-                        </div>
-                    </div>
-                    <div class="card-footer text-center py-3 bg-white">
-                        <small class="text-muted">Generated by CISC 4900 Final Project Utility</small>
-                    </div>
-                </div>
-            </div>
-        </body>
-        </html>
-        """
-        with open("index.html", "w", encoding='utf-8') as f:
-            f.write(html_template)
-        
-        print(f"\nWEB REPORT GENERATED: {os.path.abspath('index.html')}")
+    with open("index.html", "w") as f:
+        f.write(html)
 
-    except Exception as e:
-        print(f"❌ ERROR: {e}")
+    print("\nReport generated: index.html")
+
 
 if __name__ == "__main__":
     main()
