@@ -45,6 +45,7 @@ def emit_scan_json(payload):
 
 
 # --- PATTERNS ---
+# Netlify production uses netlify/functions/scan-core.js — keep CWE / dangerous lists in sync when you edit here.
 CWE_PATTERNS = {
     "buffer overflow": 5, "sql injection": 5, "command injection": 5,
     "xss": 4, "use after free": 5, "race condition": 4,

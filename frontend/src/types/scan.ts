@@ -1,4 +1,4 @@
-/** Row returned in JSON mode from `script.py` via the Netlify function. */
+/** Row returned in JSON mode from the Netlify scan function (Node `scan-core` or `script.py` when proxied). */
 export interface ScanVulnerabilityRow {
   name: string
   score: number

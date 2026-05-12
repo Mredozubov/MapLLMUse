@@ -33,7 +33,6 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
-  included_files = ["backend/script.py"]
 
 # Allow long-running scans (large repos). Netlify caps by plan; dev CLI reads this on recent versions.
 [functions.scan]

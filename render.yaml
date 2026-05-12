@@ -1,0 +1,21 @@
+# Optional: Python scan API for Netlify when using SCAN_PROXY_URL (most sites use Node scan-core instead).
+# Render → New → Blueprint → connect repo → apply.
+#
+# https://render.com/docs/infrastructure-as-code
+
+services:
+  - type: web
+    name: mapllmuse-scanner
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: python backend/scan_http_service.py
+    healthCheckPath: /health
+    buildFilter:
+      paths:
+        - backend/**
+        - render.yaml
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"
