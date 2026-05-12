@@ -10,26 +10,23 @@ This file summarizes the repository so you can work on it without rediscovering 
 - Optional enrichment from a **local reference CSV** inside `project_data.zip` (vulnerability classifications, CWE IDs, CVE IDs) to grow a set of string tokens to search for in code.
 - Optional **Gemini**–based executive summary of the top aggregated findings.
 
-The public narrative and demo UI live in static HTML; the **executable pipeline** is a single Python script.
+The **scanner UI** is a **Vite + TypeScript** app under `frontend/`; the **executable pipeline** is `backend/script.py`.
 
 ## Repository layout
 
 | Path | Role |
 |------|------|
-| `script.py` | Main CLI: downloads a GitHub repo as ZIP, scans selected extensions, aggregates scores, calls Gemini if configured. |
-| `project_data.zip` | Large local asset; contains `all_c_cpp_release2.0.csv` used to build `known_risks` string set (columns: `vulnerability_classification`, `cwe_id`, `cve_id`). **Not committed in all clones** — if missing, the scanner still runs but without that vocabulary. |
-| `.env` | **Local secrets only** (gitignored in typical setups). Expected key: `GEMINI_API_KEY`. Never commit real keys into docs or chat logs. |
-| `index.html` | Marketing / project landing page (dark theme): overview, method, interactive **sample** findings filter, links to GitHub, YouTube, release notes. |
-| `Data/index.html` | Example **generated-style** report (Bootstrap): table of top pattern scores + AI panel; content in repo is illustrative (e.g. target `python/cpython`). |
-| `LLM_summary.txt` | Curated list of Hugging Face Space URLs related to LLM coding / security (references, not code dependencies). |
-| `test_pipeline.ps1` | Minimal smoke script (`Write-Host 'SUCCESS: Pipeline is active!'`). |
-| `README.md` | Short description, contributors, video, Netlify demo URL, release notes link. |
-| `Docs/` | Placeholder / time log (`time_log.md` may be empty). |
-| `Results/` | e.g. `results.jpg` (figures); `.gitkeep` style placeholders. |
+| `frontend/` | Vite app: dashboard scanner, marketing (`#/marketing`), embedded report (`#/report`), Tailwind UI. Built output: `frontend/dist/` (Netlify `publish`). |
+| `backend/script.py` | Main CLI: downloads a GitHub repo as ZIP, scans selected extensions, aggregates scores, calls Gemini if configured. |
+| `backend/project_data.zip` | Large local asset (optional); CSV used to build `known_risks` string set. Lives next to `script.py`. |
+| `backend/.env` | **Local secrets** (gitignored). Expected key: `GEMINI_API_KEY`. |
+| `backend/Data/` | Generated `index.html` + `ai_summary.txt` from CLI runs; synced into `frontend/public/Data` for dev/build when present. |
+| `netlify/functions/scan.js` | Serverless wrapper: runs `backend/script.py --json`. |
+| `netlify.toml` | Build (`npm --prefix frontend ci && npm --prefix frontend run build`), `publish = "frontend/dist"`, `included_files` includes `backend/script.py`. |
 
-## How the scanner works (`script.py`)
+## How the scanner works (`backend/script.py`)
 
-1. **CLI**: `python script.py --target <url-or-host>`  
+1. **CLI**: `python backend/script.py --target <url-or-host>` (from repo root), or `cd backend && python script.py ...`  
    - If `--target` does not start with `http`, `https://` is prepended.
    - `github/` in the target is normalized to `github.com/`.
 
@@ -59,17 +56,17 @@ There is **no** `requirements.txt` in-repo as of this writing. Imports imply:
 - `python-dotenv` (`from dotenv import load_dotenv`)
 - `google-genai` (`from google import genai`)
 
-Install equivalent packages in your environment before running `script.py`.
+Install equivalent packages in your environment before running `backend/script.py` (e.g. `pip install -r backend/requirements.txt` in a venv).
 
 ## Environment
 
-Create a `.env` in the project root (same directory as `script.py`):
+Create `backend/.env` next to `backend/script.py`:
 
 ```env
 GEMINI_API_KEY=your_key_here
 ```
 
-If the key is invalid, revoked, or blocked, Gemini calls fail and the script surfaces the error string in the “AI” section (see sample in `Data/index.html`).
+If the key is invalid, revoked, or blocked, Gemini calls fail and the script surfaces the error string in the “AI” section (see sample under `backend/Data/` or the synced `frontend/dist/Data/index.html`).
 
 ## External links (from README / site)
 
@@ -83,6 +80,12 @@ If the key is invalid, revoked, or blocked, Gemini calls fail and the script sur
 - Hui Chen (faculty advisor)  
 - Shawn Belykh  
 - Michael Redozubov  
+
+## Local development and Netlify function timeouts
+
+- **`netlify dev` on http://localhost:8888** uses `lambda-local` with a **30 second** cap for synchronous functions when the repo is **not linked** to a Netlify site (or the CLI falls back to default site info). `[functions.scan] timeout` in `netlify.toml` does **not** override that dev path. See [netlify/cli#6481](https://github.com/netlify/cli/issues/6481) and related discussions.
+- **Workaround (default):** With Vite dev running (including when started by `netlify dev`), open the app at **http://localhost:5173**. The Vite config runs the `scan` function handler in the same Node process for `POST /.netlify/functions/scan`, so scans are only limited by `SCAN_TIMEOUT_MS` / the subprocess budget in `netlify/functions/scan.js`, not the 30s lambda-local timer. Set **`VITE_INLINE_NETLIFY_SCAN=0`** in the environment used by Vite if you need to force proxying to `VITE_FUNCTIONS_PROXY_TARGET` instead.
+- **Alternative:** Run **`netlify link`**, then raise **Functions → timeout** for the site in the Netlify UI so the API returns a higher `functions_timeout` for local dev.
 
 ## Limitations and caveats for implementers
 

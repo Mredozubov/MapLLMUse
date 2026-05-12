@@ -1,23 +1,29 @@
-# Install Python deps into python_deps/ for the scan serverless function (PYTHONPATH).
+# Run `netlify dev` ONLY from the repository root.
+# Python: venv with `pip install -r backend/requirements.txt` (activate before `netlify dev`).
+# Frontend: `frontend/` (Vite). Functions: `netlify/functions/`.
+#
+# Long scans: Netlify CLI caps synchronous functions at 30s when the site is unlinked (lambda-local).
+# Use the app at http://localhost:5173 while Vite runs — the dev server inlines `/.netlify/functions/scan`
+# in Node (see frontend/vite.config.ts). Or `netlify link` and raise the site's function timeout in the UI.
+[dev]
+  command = "npm --prefix frontend run dev"
+  targetPort = 5173
+
 [build]
-  publish = "."
-  command = "python3 -m pip install -r requirements.txt -t python_deps"
+  publish = "frontend/dist"
+  command = "npm --prefix frontend ci && npm --prefix frontend run build"
 
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
-  # Bundle script + vendored libs into the function deploy artifact.
-  included_files = ["script.py", "python_deps/**"]
+  included_files = ["backend/script.py"]
 
-# Deployed paths are case-sensitive; normalize lowercase /data/... to the repo folder Data/.
+# Allow long-running scans (large repos). Netlify caps by plan; dev CLI reads this on recent versions.
+[functions.scan]
+  timeout = 900
+
 [[redirects]]
   from = "/data/index.html"
   to = "/Data/index.html"
   status = 301
   force = true
-
-# Scanner app at site root; marketing page at /index.html; saved report at /Data/index.html
-[[redirects]]
-  from = "/"
-  to = "/scan.html"
-  status = 302

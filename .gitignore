@@ -1,3 +1,22 @@
+# Secrets
+.env
+backend/.env
+
+# Python
 python_deps/
 __pycache__/
+*.pyc
+*.pyo
 .venv/
+venv/
+env/
+
+# Accidental pip -t style layouts
+lib/
+
+# Node
+node_modules/
+frontend/node_modules/
+
+# Netlify CLI
+.netlify/

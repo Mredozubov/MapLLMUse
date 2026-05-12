@@ -1,16 +1,23 @@
-import pandas as pd
+import sys
+
+# Before importing third-party libraries: in --json mode, route their incidental stdout
+# (and any accidental print()) to stderr so the real stdout carries only the final JSON line.
+_JSON_MODE = "--json" in sys.argv
+_JSON_RESULT_STREAM = sys.stdout
+if _JSON_MODE:
+    sys.stdout = sys.stderr
+
+import json
 import zipfile
 import requests
 import io
 import os
-import sys
-import json
 import argparse
 import re
 import html
+import pandas as pd
 from google import genai
-from dotenv import load_dotenv # NEW: Industry standard secret management
-
+from dotenv import load_dotenv  # NEW: Industry standard secret management
 # --- SECURE CONFIGURATION ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 REFERENCE_ZIP = os.path.join(BASE_DIR, 'project_data.zip')
@@ -19,6 +26,23 @@ REFERENCE_CSV = 'all_c_cpp_release2.0.csv'
 # Load the hidden .env file automatically
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+
+def emit_scan_json(payload):
+    """In --json mode, write exactly one JSON object to the original stdout (strict JSON)."""
+    if not _JSON_MODE:
+        return
+    try:
+        line = json.dumps(payload, ensure_ascii=False, allow_nan=False)
+    except (ValueError, TypeError):
+        line = json.dumps(
+            {"ok": False, "error": "Scan produced a response that could not be encoded as strict JSON."},
+            ensure_ascii=False,
+            allow_nan=False,
+        )
+    _JSON_RESULT_STREAM.write(line + "\n")
+    _JSON_RESULT_STREAM.flush()
+
 
 # --- PATTERNS ---
 CWE_PATTERNS = {
@@ -244,6 +268,10 @@ def vulnerabilities_to_json(summary_df):
             score_num = float(score_val)
         except (TypeError, ValueError):
             score_num = 0.0
+        if score_num != score_num:  # NaN
+            score_num = 0.0
+        elif score_num in (float("inf"), float("-inf")):
+            score_num = 0.0
         score_display = int(score_num) if score_num == int(score_num) else score_num
         rows.append(
             {
@@ -278,7 +306,9 @@ def main():
     args = parser.parse_args()
 
     def log(*a, **k):
-        if not args.json:
+        if args.json:
+            print(*a, file=sys.stderr, **k)
+        else:
             print(*a, **k)
 
     log("\n" + "="*50)
@@ -321,12 +351,12 @@ def main():
             empty_msg = "No vulnerability patterns were detected in the scanned sources."
             log("[!] No vulnerabilities detected.")
             if args.json:
-                print(json.dumps({
+                emit_scan_json({
                     "ok": True,
                     "target": target,
                     "vulnerabilities": [],
                     "aiSummary": empty_msg,
-                }), flush=True)
+                })
             return
 
         df = pd.DataFrame(all_findings, columns=["Vulnerability", "Score"])
@@ -345,12 +375,12 @@ def main():
             f.write(build_report_html(target, summary, ai_report))
 
         if args.json:
-            print(json.dumps({
+            emit_scan_json({
                 "ok": True,
                 "target": target,
                 "vulnerabilities": vulnerabilities_to_json(summary),
                 "aiSummary": ai_report,
-            }), flush=True)
+            })
         else:
             log("\n" + "-"*30 + "\nTOP SECURITY RISKS:\n" + "-"*30)
             log(summary)
@@ -359,7 +389,7 @@ def main():
 
     except Exception as e:
         if args.json:
-            print(json.dumps({"ok": False, "error": str(e)}), flush=True)
+            emit_scan_json({"ok": False, "error": str(e)})
             sys.exit(1)
         log(f"Error: {e}")
 

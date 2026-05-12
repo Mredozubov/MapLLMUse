@@ -1,0 +1,10 @@
+.venv
+venv
+python_deps
+lib
+node_modules
+frontend/node_modules
+frontend/dist
+__pycache__
+*.pyc
+.netlify
