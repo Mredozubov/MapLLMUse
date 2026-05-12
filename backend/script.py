@@ -58,6 +58,32 @@ DANGEROUS_FUNCTIONS = {
     r"\bmemcpy\b": 3, r"\beval\s*\(": 5
 }
 
+def _format_gemini_error(exc):
+    """Readable message when Gemini returns invalid/expired key or JSON error bodies."""
+    raw = str(exc).strip()
+    friendly = (
+        "Gemini could not run: the API key is missing, invalid, or expired. "
+        "Create a new key at https://aistudio.google.com/apikey and set GEMINI_API_KEY. "
+        "The pattern scores above are still from the code scan."
+    )
+    if "API key expired" in raw or "API_KEY_INVALID" in raw:
+        return friendly
+    if raw.startswith("{"):
+        try:
+            j = json.loads(raw)
+            err = j.get("error") or j
+            msg = (err.get("message") or "").lower()
+            details = err.get("details") or []
+            reason = details[0].get("reason") if details and isinstance(details[0], dict) else ""
+            if reason == "API_KEY_INVALID" or "api key expired" in msg or "invalid_argument" in msg:
+                return friendly
+            if err.get("message"):
+                return f"Gemini request failed: {err.get('message')}"
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            pass
+    return f"AI Analysis Error: {raw[:400]}"
+
+
 def get_ai_analysis(target, findings_summary):
     if not GEMINI_API_KEY:
         return "AI analysis skipped: No API Key found in .env file."
@@ -74,7 +100,7 @@ def get_ai_analysis(target, findings_summary):
         )
         return response.text
     except Exception as e:
-        return f"AI Analysis Error: {e}"
+        return _format_gemini_error(e)
 
 def build_report_html(target, summary_df, ai_report):
     """Bootstrap report page: hero header, striped risk table, AI summary, footer."""

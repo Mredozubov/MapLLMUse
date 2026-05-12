@@ -123,6 +123,63 @@ function analyzeContent(content, knownRisks) {
   return findings;
 }
 
+/** Turn SDK / Google JSON errors into a short message for the dashboard. */
+function tryParseGoogleErrorJson(s) {
+  const t = String(s).trim();
+  if (t.startsWith("{")) {
+    try {
+      return JSON.parse(t);
+    } catch {
+      return null;
+    }
+  }
+  const i = t.indexOf("{");
+  const j = t.lastIndexOf("}");
+  if (i === -1 || j <= i) return null;
+  try {
+    return JSON.parse(t.slice(i, j + 1));
+  } catch {
+    return null;
+  }
+}
+
+function formatGeminiError(err) {
+  const friendlyKey =
+    "Gemini could not run: the API key is missing, invalid, or expired. " +
+    "Create a new key at https://aistudio.google.com/apikey and set GEMINI_API_KEY in Netlify (or backend/.env locally). " +
+    "The pattern scores above are still from the code scan.";
+
+  let raw = err && err.message ? String(err.message) : String(err);
+  const status = err && typeof err.status === "number" ? err.status : undefined;
+
+  const j = tryParseGoogleErrorJson(raw);
+  if (j) {
+    const inner = j && j.error ? j.error : j;
+    const msg = inner && inner.message ? String(inner.message) : "";
+    const details = inner && Array.isArray(inner.details) ? inner.details : [];
+    const reason0 = details[0] && details[0].reason ? String(details[0].reason) : "";
+    if (
+      reason0 === "API_KEY_INVALID" ||
+      /API key expired|invalid api key|API_KEY_INVALID/i.test(msg + raw)
+    ) {
+      return friendlyKey;
+    }
+    if (msg) {
+      return `Gemini request failed: ${msg}${status ? ` (${status})` : ""}`;
+    }
+  }
+
+  if (/API key expired|API_KEY_INVALID|invalid api key|INVALID_ARGUMENT.*key/i.test(raw)) {
+    return friendlyKey;
+  }
+  if (status === 401 || status === 403) {
+    return friendlyKey;
+  }
+
+  const short = raw.length > 420 ? `${raw.slice(0, 400)}…` : raw;
+  return `Gemini request failed: ${short}`;
+}
+
 async function getAiAnalysisNode(target, findingsSummary) {
   const key = process.env.GEMINI_API_KEY || "";
   if (!key.trim()) {
@@ -142,7 +199,7 @@ async function getAiAnalysisNode(target, findingsSummary) {
     const text = response.text;
     return text || "AI analysis returned an empty response.";
   } catch (e) {
-    return `AI Analysis Error: ${e && e.message ? e.message : String(e)}`;
+    return formatGeminiError(e);
   }
 }
 
