@@ -9,6 +9,7 @@ import { createSummaryPanel } from '../components/SummaryPanel.ts'
 import { countSeverities, createThreatChart, topByScore } from '../components/ThreatChart.ts'
 import { createThreatCards } from '../components/ThreatCards.ts'
 import { createThreatTable } from '../components/ThreatTable.ts'
+import { saveLastScan } from '../utils/lastScanStorage.ts'
 import { append, el } from '../utils/dom.ts'
 
 function formatHttpError(body: unknown, httpStatus: number, fetchOk: boolean): string {
@@ -72,6 +73,7 @@ export function mountHomePage(mountEl: HTMLElement): void {
       }
 
       const data = body
+      saveLastScan(data)
       const rows = data.vulnerabilities
       table.setRows(rows, data.target)
       cards.setRows(rows)

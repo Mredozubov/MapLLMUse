@@ -51,7 +51,7 @@ export function mountMarketingPage(mountEl: HTMLElement): void {
 
   const back = el('p', 'pt-4')
   const a = el('a', 'text-sm font-medium text-indigo-400 hover:text-indigo-300', { href: '#/' })
-  a.textContent = '← Back to scanner'
+  a.textContent = 'Back to scanner'
   append(back, a)
 
   append(wrap, intro, overview, method, res, back)

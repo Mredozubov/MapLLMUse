@@ -229,7 +229,7 @@ def build_report_html(target, summary_df, ai_report):
           <div class="text-white-50 small text-uppercase fw-semibold mb-2" style="letter-spacing: 0.12em;">
             Security scan · Target repository
           </div>
-          <h1 class="h3 text-white-50 mb-3 mb-lg-2">🛡️ MapLLMUse report</h1>
+          <h1 class="h3 text-white-50 mb-3 mb-lg-2">MapLLMUse report</h1>
           <p class="target-line mb-0 text-white" id="scan-target">{safe_target}</p>
         </div>
         <div class="align-self-lg-center">
@@ -264,7 +264,7 @@ def build_report_html(target, summary_df, ai_report):
 
     <div class="card ai-summary-card border-0 shadow-sm mt-4">
       <div class="card-header bg-dark text-white py-3 px-4 fs-5 fw-semibold">
-        🤖 AI Executive Summary
+        AI Executive Summary
       </div>
       <div class="card-body p-4">
         <div id="ai-summary" class="ai-summary-body">{safe_ai}</div>

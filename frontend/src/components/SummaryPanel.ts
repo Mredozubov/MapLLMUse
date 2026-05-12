@@ -1,4 +1,5 @@
 import { append, el } from '../utils/dom.ts'
+import { formatAiSummaryForDisplay } from '../utils/aiSummaryText.ts'
 
 export function createSummaryPanel(): {
   root: HTMLElement
@@ -9,12 +10,8 @@ export function createSummaryPanel(): {
     'div',
     'hidden rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-900/80 to-indigo-950/30 p-4 sm:p-6',
   )
-  const h = el('h2', 'flex items-center gap-2 text-lg font-semibold text-white')
-  const icon = el('span', 'text-xl', { 'aria-hidden': 'true' })
-  icon.textContent = '🤖'
-  const t = el('span', '')
-  t.textContent = 'AI executive summary'
-  append(h, icon, t)
+  const h = el('h2', 'text-lg font-semibold text-white')
+  h.textContent = 'AI executive summary'
 
   const body = el(
     'div',
@@ -25,7 +22,7 @@ export function createSummaryPanel(): {
   return {
     root,
     setSummary(text) {
-      body.textContent = text
+      body.textContent = formatAiSummaryForDisplay(text)
       root.classList.remove('hidden')
     },
     clear() {

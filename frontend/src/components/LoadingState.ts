@@ -17,7 +17,7 @@ export function createLoadingState(): {
     'h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-indigo-400/30 border-t-indigo-400',
   )
   const text = el('span', 'text-indigo-100/90')
-  text.textContent = 'Scanning repository…'
+  text.textContent = 'Scanning repository...'
   append(root, spinner, text)
 
   let progress = 0
@@ -28,7 +28,7 @@ export function createLoadingState(): {
     show(message) {
       root.classList.remove('hidden')
       root.classList.add('flex')
-      text.textContent = message ?? 'Scanning repository… this can take a few minutes.'
+      text.textContent = message ?? 'Scanning repository... this can take a few minutes.'
       progress = 5
       if (timer) clearInterval(timer)
       timer = setInterval(() => {
