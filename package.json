@@ -2,6 +2,10 @@
   "name": "mapllmuse",
   "private": true,
   "scripts": {
-    "build": "npm --prefix frontend ci && npm --prefix frontend run build && node scripts/verify-netlify-publish.mjs"
+    "build": "npm ci && npm --prefix frontend ci && npm --prefix frontend run build && node scripts/verify-netlify-publish.mjs"
+  },
+  "dependencies": {
+    "@google/genai": "^1.52.0",
+    "adm-zip": "^0.5.16"
   }
 }

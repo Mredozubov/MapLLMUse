@@ -23,7 +23,7 @@ The **scanner UI** is a **Vite + TypeScript** app under `frontend/`; the **refer
 | `backend/Data/` | Generated `index.html` + `ai_summary.txt` from CLI runs; synced into `frontend/public/Data` for dev/build when present. |
 | `netlify/functions/scan.js` | Netlify handler: optional `SCAN_PROXY_URL`; else **`scan-core.js`** (pure Node: zip + heuristics + Gemini). |
 | `netlify/functions/scan-core.js` | Node implementation of the scan pipeline (mirrors `backend/script.py` for production; no Python on Netlify). |
-| `netlify/functions/package.json` | Function deps (`adm-zip`, `@google/genai`); Netlify installs on deploy. |
+| `package.json` (repo root) | Root **`dependencies`**: `adm-zip`, `@google/genai` for Netlify function bundling. **`npm run build`** starts with **`npm ci`** here so those modules exist before esbuild packages `netlify/functions`. |
 | `backend/scan_http_service.py` | Optional stdlib HTTP service if you still want a separate Python host behind `SCAN_PROXY_URL`. |
 | `render.yaml` | Optional [Render Blueprint](https://render.com/docs/infrastructure-as-code) for `scan_http_service.py`. |
 | `netlify.toml` | Build (`npm run build` from root), `publish = "frontend/dist"`, functions use esbuild. |
