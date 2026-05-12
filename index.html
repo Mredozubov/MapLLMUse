@@ -633,6 +633,33 @@
       padding: 26px;
     }
 
+    .ai-summary-home {
+      margin-top: 22px;
+    }
+
+    .ai-summary-home .demo-results {
+      padding: 20px 22px 22px;
+    }
+
+    .ai-summary-home-status {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.98rem;
+    }
+
+    .ai-summary-home-text {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--text);
+      font-size: 1.05rem;
+      line-height: 1.65;
+      padding: 16px 18px;
+      border-left: 4px solid var(--purple);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      background: rgba(192, 132, 252, 0.1);
+    }
+
     .resource-card {
       display: flex;
       justify-content: space-between;
@@ -759,6 +786,7 @@
         <a href="#overview">Overview</a>
         <a href="#method">Method</a>
         <a href="#demo">Demo</a>
+        <a href="#ai-summary">AI summary</a>
         <a href="#resources">Resources</a>
       </nav>
 
@@ -1058,6 +1086,17 @@
             No findings match that filter.
           </div>
         </div>
+
+        <div id="ai-summary" class="demo-box ai-summary-home">
+          <div class="demo-toolbar">
+            <h3>🤖 AI Executive Summary</h3>
+            <a class="btn" href="Data/index.html">Open full report</a>
+          </div>
+          <div class="demo-results">
+            <p class="ai-summary-home-status" id="aiSummaryHomeStatus">Loading latest summary…</p>
+            <p class="ai-summary-home-text" id="aiSummaryHomeText" hidden></p>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -1132,6 +1171,7 @@
         <a href="#overview">Overview</a>
         <a href="#method">Method</a>
         <a href="#demo">Demo</a>
+        <a href="#ai-summary">AI summary</a>
         <a href="https://github.com/Mredozubov/MapLLMUse" target="_blank" rel="noreferrer">GitHub</a>
       </div>
     </div>
@@ -1164,6 +1204,33 @@
       emptyState.style.display = visibleCount === 0 ? "block" : "none";
       findingList.style.display = visibleCount === 0 ? "none" : "grid";
     });
+
+    (function loadAiSummaryHome() {
+      const statusEl = document.getElementById("aiSummaryHomeStatus");
+      const textEl = document.getElementById("aiSummaryHomeText");
+      if (!statusEl || !textEl) return;
+
+      fetch("Data/ai_summary.txt", { cache: "no-store" })
+        .then(function (res) {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.text();
+        })
+        .then(function (text) {
+          const trimmed = text.trim();
+          if (!trimmed) {
+            statusEl.textContent =
+              "No AI summary yet. Run script.py with a target repo to generate Data/ai_summary.txt.";
+            return;
+          }
+          statusEl.hidden = true;
+          textEl.hidden = false;
+          textEl.textContent = text;
+        })
+        .catch(function () {
+          statusEl.textContent =
+            "Could not load Data/ai_summary.txt. Serve this site over HTTP (for example Netlify or a local server), or run script.py first.";
+        });
+    })();
   </script>
 </body>
 </html>
