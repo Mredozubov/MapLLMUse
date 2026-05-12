@@ -1,0 +1,22 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --color-risk-high: #fb7185;
+  --color-risk-medium: #fbbf24;
+  --color-risk-low: #34d399;
+  --color-surface: #0f172a;
+  --color-surface-elevated: #1e293b;
+}
+
+@layer base {
+  html {
+    @apply scroll-smooth antialiased;
+  }
+  body {
+    @apply min-h-dvh bg-slate-950 text-slate-100 font-sans;
+    background-image:
+      radial-gradient(ellipse 120% 80% at 50% -20%, rgb(30 58 138 / 0.35), transparent),
+      radial-gradient(ellipse 80% 50% at 100% 0%, rgb(88 28 135 / 0.2), transparent);
+  }
+}

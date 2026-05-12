@@ -1,0 +1,23 @@
+{
+  "name": "mapllm",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "predev": "node scripts/sync-public-data.mjs",
+    "dev": "vite",
+    "prebuild": "node scripts/sync-public-data.mjs",
+    "build": "tsc && vite build && node scripts/copy-data.mjs",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "chart.js": "^4.4.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.5",
+    "autoprefixer": "^10.4.21",
+    "tailwindcss": "^4.1.5",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.12"
+  }
+}
