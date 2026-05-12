@@ -3,6 +3,8 @@ import zipfile
 import requests
 import io
 import os
+import sys
+import json
 import argparse
 import re
 import html
@@ -226,6 +228,33 @@ def build_report_html(target, summary_df, ai_report):
 </html>
 """
 
+def risk_level_for_score(score_num):
+    if score_num > 100:
+        return "High"
+    if score_num >= 50:
+        return "Medium"
+    return "Low"
+
+
+def vulnerabilities_to_json(summary_df):
+    rows = []
+    for vuln, row in summary_df.iterrows():
+        score_val = row["Score"]
+        try:
+            score_num = float(score_val)
+        except (TypeError, ValueError):
+            score_num = 0.0
+        score_display = int(score_num) if score_num == int(score_num) else score_num
+        rows.append(
+            {
+                "name": str(vuln),
+                "score": score_display,
+                "riskLevel": risk_level_for_score(score_num),
+            }
+        )
+    return rows
+
+
 def analyze_content(content, known_risks):
     content = content.lower()
     findings = []
@@ -245,12 +274,17 @@ def analyze_content(content, known_risks):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--target", required=True)
+    parser.add_argument("--json", action="store_true", help="Emit a single JSON object on stdout (for serverless).")
     args = parser.parse_args()
 
-    print("\n" + "="*50)
-    print("CISC 4900: AI-AUGMENTED SECURITY SCANNER (v2026)")
-    print("="*50)
-    
+    def log(*a, **k):
+        if not args.json:
+            print(*a, **k)
+
+    log("\n" + "="*50)
+    log("CISC 4900: AI-AUGMENTED SECURITY SCANNER (v2026)")
+    log("="*50)
+
     target = args.target if args.target.startswith("http") else "https://" + args.target
 
     try:
@@ -262,18 +296,18 @@ def main():
                     known_risks.update(ref_df['vulnerability_classification'].dropna().unique().tolist())
                     known_risks.update(ref_df['cwe_id'].dropna().unique().tolist())
                     known_risks.update(ref_df['cve_id'].dropna().unique().tolist())
-            print(f"[*] Library Loaded: {len(known_risks)} unique patterns.")
+            log(f"[*] Library Loaded: {len(known_risks)} unique patterns.")
 
         all_findings = []
-        print(f"[*] Analyzing Source: {target}...")
-        
+        log(f"[*] Analyzing Source: {target}...")
+
         clean_url = target.replace("github/", "github.com/")
         zip_url = clean_url.rstrip('/') + "/archive/refs/heads/main.zip"
-        
+
         r = requests.get(zip_url)
         if r.status_code != 200:
             r = requests.get(clean_url.rstrip('/') + "/archive/refs/heads/master.zip")
-        
+
         if r.status_code != 200:
             raise Exception(f"Could not connect to {clean_url}.")
 
@@ -284,13 +318,21 @@ def main():
                         all_findings.extend(analyze_content(f.read().decode('utf-8', errors='ignore'), known_risks))
 
         if not all_findings:
-            print("[!] No vulnerabilities detected.")
+            empty_msg = "No vulnerability patterns were detected in the scanned sources."
+            log("[!] No vulnerabilities detected.")
+            if args.json:
+                print(json.dumps({
+                    "ok": True,
+                    "target": target,
+                    "vulnerabilities": [],
+                    "aiSummary": empty_msg,
+                }), flush=True)
             return
 
         df = pd.DataFrame(all_findings, columns=["Vulnerability", "Score"])
         summary = df.groupby("Vulnerability").sum().sort_values("Score", ascending=False).head(10)
-        
-        print("[*] Requesting AI Expert Analysis (2026 SDK)...")
+
+        log("[*] Requesting AI Expert Analysis (2026 SDK)...")
         ai_report = get_ai_analysis(target, summary.to_string())
 
         data_dir = os.path.join(BASE_DIR, "Data")
@@ -302,13 +344,24 @@ def main():
         with open(index_path, "w", encoding="utf-8") as f:
             f.write(build_report_html(target, summary, ai_report))
 
-        print("\n" + "-"*30 + "\nTOP SECURITY RISKS:\n" + "-"*30)
-        print(summary)
-        print("\n" + "-"*30 + "\nAI EXECUTIVE SUMMARY:\n" + "-"*30)
-        print(ai_report + "\n" + "-"*30)
+        if args.json:
+            print(json.dumps({
+                "ok": True,
+                "target": target,
+                "vulnerabilities": vulnerabilities_to_json(summary),
+                "aiSummary": ai_report,
+            }), flush=True)
+        else:
+            log("\n" + "-"*30 + "\nTOP SECURITY RISKS:\n" + "-"*30)
+            log(summary)
+            log("\n" + "-"*30 + "\nAI EXECUTIVE SUMMARY:\n" + "-"*30)
+            log(ai_report + "\n" + "-"*30)
 
     except Exception as e:
-        print(f"Error: {e}")
+        if args.json:
+            print(json.dumps({"ok": False, "error": str(e)}), flush=True)
+            sys.exit(1)
+        log(f"Error: {e}")
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,13 @@
-# Static deploy: serve the repo root so paths like /Data/index.html exist on the CDN.
+# Install Python deps into python_deps/ for the scan serverless function (PYTHONPATH).
 [build]
   publish = "."
+  command = "python3 -m pip install -r requirements.txt -t python_deps"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+  # Bundle script + vendored libs into the function deploy artifact.
+  included_files = ["script.py", "python_deps/**"]
 
 # Deployed paths are case-sensitive; normalize lowercase /data/... to the repo folder Data/.
 [[redirects]]
@@ -9,8 +16,8 @@
   status = 301
   force = true
 
-# Default landing: scan report. Marketing page stays available at /index.html
+# Scanner app at site root; marketing page at /index.html; saved report at /Data/index.html
 [[redirects]]
   from = "/"
-  to = "/Data/index.html"
+  to = "/scan.html"
   status = 302
