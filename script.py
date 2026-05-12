@@ -5,12 +5,17 @@ import io
 import os
 import argparse
 import re
-from google import genai  # THE NEW 2026 SDK
+from google import genai
+from dotenv import load_dotenv # NEW: Industry standard secret management
 
-# --- CONFIGURATION ---
-REFERENCE_ZIP = 'project_data.zip'
+# --- SECURE CONFIGURATION ---
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+REFERENCE_ZIP = os.path.join(BASE_DIR, 'project_data.zip')
 REFERENCE_CSV = 'all_c_cpp_release2.0.csv'
-GEMINI_API_KEY = "AIzaSyDXtw4oqyuktVnfgo4tXum792M2ZPiWo2w" 
+
+# Load the hidden .env file automatically
+load_dotenv(os.path.join(BASE_DIR, '.env'))
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # --- PATTERNS ---
 CWE_PATTERNS = {
@@ -25,23 +30,16 @@ DANGEROUS_FUNCTIONS = {
     r"\bmemcpy\b": 3, r"\beval\s*\(": 5
 }
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--target", required=True)
-args = parser.parse_args()
-
 def get_ai_analysis(target, findings_summary):
-    """Fetches expert analysis using the NEW 2026 SDK."""
-    if not GEMINI_API_KEY or "YOUR_API_KEY" in GEMINI_API_KEY:
-        return "AI analysis skipped: No API Key detected."
+    if not GEMINI_API_KEY:
+        return "AI analysis skipped: No API Key found in .env file."
     
     try:
-        # Initialize the new 2026 Client
         client = genai.Client(api_key=GEMINI_API_KEY)
         prompt = (f"Act as a Senior Security Architect. Analyze these scan results for {target}: "
                   f"\n{findings_summary}\n"
                   f"Provide a 3-sentence executive summary focusing on the risk impact.")
         
-        # New call style for 2026
         response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=prompt
@@ -55,9 +53,8 @@ def analyze_content(content, known_risks):
     findings = []
     for risk in known_risks:
         risk_str = str(risk).lower()
-        count = content.count(risk_str)
-        if count > 0:
-            findings.append((risk, count))
+        if risk_str in content:
+            findings.append((risk, content.count(risk_str)))
     for k, score in CWE_PATTERNS.items():
         if k in content:
             findings.append((k.upper(), score))
@@ -68,13 +65,17 @@ def analyze_content(content, known_risks):
     return findings
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--target", required=True)
+    args = parser.parse_args()
+
     print("\n" + "="*50)
     print("CISC 4900: AI-AUGMENTED SECURITY SCANNER (v2026)")
     print("="*50)
+    
     target = args.target if args.target.startswith("http") else "https://" + args.target
 
     try:
-        # LOAD DATASET
         known_risks = set()
         if os.path.exists(REFERENCE_ZIP):
             with zipfile.ZipFile(REFERENCE_ZIP, 'r') as z:
@@ -85,11 +86,9 @@ def main():
                     known_risks.update(ref_df['cve_id'].dropna().unique().tolist())
             print(f"[*] Library Loaded: {len(known_risks)} unique patterns.")
 
-        # SCANNING
         all_findings = []
         print(f"[*] Analyzing Source: {target}...")
         
-        # Fixed URL logic to prevent typos
         clean_url = target.replace("github/", "github.com/")
         zip_url = clean_url.rstrip('/') + "/archive/refs/heads/main.zip"
         
@@ -98,7 +97,7 @@ def main():
             r = requests.get(clean_url.rstrip('/') + "/archive/refs/heads/master.zip")
         
         if r.status_code != 200:
-            raise Exception(f"Could not connect to {clean_url}. Check your internet or URL.")
+            raise Exception(f"Could not connect to {clean_url}.")
 
         with zipfile.ZipFile(io.BytesIO(r.content)) as z:
             for file in z.namelist():
@@ -106,38 +105,20 @@ def main():
                     with z.open(file) as f:
                         all_findings.extend(analyze_content(f.read().decode('utf-8', errors='ignore'), known_risks))
 
-        # RESULTS PROCESSING
+        if not all_findings:
+            print("[!] No vulnerabilities detected.")
+            return
+
         df = pd.DataFrame(all_findings, columns=["Vulnerability", "Score"])
         summary = df.groupby("Vulnerability").sum().sort_values("Score", ascending=False).head(10)
         
-        # LLM INTEGRATION
         print("[*] Requesting AI Expert Analysis (2026 SDK)...")
         ai_report = get_ai_analysis(target, summary.to_string())
 
-        # OUTPUT
         print("\n" + "-"*30 + "\nTOP SECURITY RISKS:\n" + "-"*30)
         print(summary)
         print("\n" + "-"*30 + "\nAI EXECUTIVE SUMMARY:\n" + "-"*30)
         print(ai_report + "\n" + "-"*30)
-
-        # HTML
-        html_content = f"""
-        <html>
-        <head><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"></head>
-        <body class="bg-light p-5"><div class="container bg-white shadow p-5 rounded">
-            <h1 class="text-primary mb-4 border-bottom pb-2">🛡️ AI Security Report</h1>
-            <p>Target: <b>{target}</b></p>
-            <div class="row mt-5">
-                <div class="col-lg-7"><h3>Pattern Matches</h3>{summary.to_html(classes='table table-striped')}</div>
-                <div class="col-lg-5"><div class="card border-primary">
-                    <div class="card-header bg-primary text-white"><b>AI Risk Assessment</b></div>
-                    <div class="card-body"><p>{ai_report}</p></div>
-                </div></div>
-            </div>
-        </div></body></html>"""
-        with open("index.html", "w", encoding="utf-8") as f:
-            f.write(html_content)
-        print(f"Report Updated: index.html")
 
     except Exception as e:
         print(f"Error: {e}")
