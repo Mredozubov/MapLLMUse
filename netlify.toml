@@ -21,6 +21,15 @@
   publish = "frontend/dist"
   command = "npm run build"
 
+# Redundant but helps some accounts where UI context fields were set long ago.
+[context.production]
+  publish = "frontend/dist"
+  command = "npm run build"
+
+[context.deploy-preview]
+  publish = "frontend/dist"
+  command = "npm run build"
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"

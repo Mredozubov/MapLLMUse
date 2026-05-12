@@ -2,6 +2,6 @@
   "name": "mapllmuse",
   "private": true,
   "scripts": {
-    "build": "npm --prefix frontend ci && npm --prefix frontend run build"
+    "build": "npm --prefix frontend ci && npm --prefix frontend run build && node scripts/verify-netlify-publish.mjs"
   }
 }
