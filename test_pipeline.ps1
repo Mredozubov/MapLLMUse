@@ -1,1 +1,1 @@
-Write-Host '✅ LOCK IN SUCCESS: Pipeline is active!'
+Write-Host 'SUCCESS: Pipeline is active!'
