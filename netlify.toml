@@ -1,7 +1,16 @@
+# Static deploy: serve the repo root so paths like /Data/index.html exist on the CDN.
 [build]
   publish = "."
 
+# Deployed paths are case-sensitive; normalize lowercase /data/... to the repo folder Data/.
 [[redirects]]
-  from = "/Data/*"
-  to = "/Data/:splat"
-  status = 200
+  from = "/data/index.html"
+  to = "/Data/index.html"
+  status = 301
+  force = true
+
+# Default landing: scan report. Marketing page stays available at /index.html
+[[redirects]]
+  from = "/"
+  to = "/Data/index.html"
+  status = 302
