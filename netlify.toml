@@ -1,3 +1,11 @@
+# --- Netlify dashboard (Site settings → Build & deploy) -----------------------
+# Base directory: leave EMPTY (repository root). Do not set "main" — that is a branch name,
+# not a folder; Netlify would look for ./main and the build would fail.
+# Publish directory: use frontend/dist (this file sets it). Do NOT use dist/client — this app
+# is plain Vite; output is frontend/dist, not an SSR client bundle.
+# Build command: npm run build (root package.json) or the command below — avoid a UI command
+# that only runs `vite build` from repo root without cd/npm --prefix frontend.
+# ------------------------------------------------------------------------------
 # Run `netlify dev` ONLY from the repository root.
 # Python: venv with `pip install -r backend/requirements.txt` (activate before `netlify dev`).
 # Frontend: `frontend/` (Vite). Functions: `netlify/functions/`.
@@ -11,7 +19,7 @@
 
 [build]
   publish = "frontend/dist"
-  command = "npm --prefix frontend ci && npm --prefix frontend run build"
+  command = "npm run build"
 
 [functions]
   directory = "netlify/functions"

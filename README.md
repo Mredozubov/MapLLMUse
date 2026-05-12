@@ -12,5 +12,7 @@ Characterizing AI and human risk when coding using tools such as BigVul and CWE.
 ## Website
 - https://mapllmuse.netlify.app/
 
+**Netlify:** Base directory must be empty (repo root), not `main`. Publish directory must be **`frontend/dist`** (plain Vite; not `dist/client`). Build command **`npm run build`** uses the root `package.json` and runs the real build inside `frontend/`.
+
 ## Release Notes
 - https://docs.google.com/document/d/1u-RiW2BLiMWl29UT704ccU3txAmQd_xoVWAsQ6mRvLc/edit?usp=sharing

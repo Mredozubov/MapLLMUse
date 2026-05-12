@@ -81,6 +81,10 @@ If the key is invalid, revoked, or blocked, Gemini calls fail and the script sur
 - Shawn Belykh  
 - Michael Redozubov  
 
+## Netlify production build (dashboard vs repo)
+
+The Vite app lives under `frontend/`; deployable files are **`frontend/dist`** (not `dist/client` and not repo-root `dist`). In the Netlify UI under **Site configuration → Build & deploy → Build settings**, keep **Base directory** empty (repository root). Setting base to **`main`** is a common mistake (that is the default Git branch, not a path). This repo’s root **`package.json`** defines `npm run build` so the build command can stay the standard `npm run build` while still running `npm ci` / `npm run build` inside `frontend/`. If the UI still sets a custom publish path, clear it so **`netlify.toml`** `publish = "frontend/dist"` applies.
+
 ## Local development and Netlify function timeouts
 
 - **`netlify dev` on http://localhost:8888** uses `lambda-local` with a **30 second** cap for synchronous functions when the repo is **not linked** to a Netlify site (or the CLI falls back to default site info). `[functions.scan] timeout` in `netlify.toml` does **not** override that dev path. See [netlify/cli#6481](https://github.com/netlify/cli/issues/6481) and related discussions.
