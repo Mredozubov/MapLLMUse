@@ -5,86 +5,146 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AI Security Report</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" />
+  <style>
+    :root {
+      --report-header-bg: #0b1220;
+      --report-accent: #7c3aed;
+    }
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #f4f6fb;
+    }
+    .report-hero {
+      background: linear-gradient(135deg, var(--report-header-bg) 0%, #111827 55%, #1e1b4b 100%);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .report-hero .target-line {
+      font-size: clamp(1.15rem, 2.4vw, 1.85rem);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      word-break: break-word;
+    }
+    .scan-status-pill {
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      box-shadow: 0 8px 24px rgba(25, 135, 84, 0.35);
+    }
+    .table-scroll-wrap {
+      max-height: min(55vh, 520px);
+      overflow-y: auto;
+      border-radius: 0.5rem;
+      border: 1px solid rgba(0,0,0,0.08);
+      background: #fff;
+    }
+    .table-scroll-wrap table {
+      margin-bottom: 0;
+    }
+    .table-scroll-wrap thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #f8f9fa;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.08);
+    }
+    .risk-badge-high {
+      background: #dc2626;
+      color: #fff;
+    }
+    .risk-badge-medium {
+      background: #f97316;
+      color: #111827;
+    }
+    .risk-badge-low {
+      background: #facc15;
+      color: #422006;
+    }
+    .ai-summary-card .card-header {
+      border-bottom: none;
+    }
+    #ai-summary.ai-summary-body {
+      margin: 0;
+      white-space: pre-wrap;
+      font-family: inherit;
+      font-size: 1.05rem;
+      line-height: 1.65;
+      color: #1f2937;
+      border-left: 4px solid var(--report-accent);
+      padding: 0.75rem 0 0.75rem 1.25rem;
+      background: linear-gradient(90deg, rgba(124, 58, 237, 0.06), transparent 40%);
+    }
+    main.container {
+      flex: 1;
+    }
+    .report-footer {
+      border-top: 1px solid rgba(0,0,0,0.06);
+      background: #fff;
+    }
+  </style>
 </head>
-<body class="bg-light p-5">
-  <div class="container bg-white shadow p-5 rounded">
-    <h1 class="text-primary mb-4 border-bottom pb-2">🛡️ AI Security Report</h1>
-    <p class="mb-0">Target: <b>https://github.com/python/cpython</b></p>
-    <div class="row mt-5 g-4">
-      <div class="col-lg-7">
-        <h3 class="mb-3">Pattern Matches</h3>
+<body>
+  <header class="report-hero text-white">
+    <div class="container py-4 py-md-5">
+      <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-lg-between gap-4">
+        <div class="flex-grow-1">
+          <div class="text-white-50 small text-uppercase fw-semibold mb-2" style="letter-spacing: 0.12em;">
+            Security scan · Target repository
+          </div>
+          <h1 class="h3 text-white-50 mb-3 mb-lg-2">🛡️ MapLLMUse report</h1>
+          <p class="target-line mb-0 text-white" id="scan-target">https://github.com/nmap/nmap</p>
+        </div>
+        <div class="align-self-lg-center">
+          <span class="badge scan-status-pill bg-success rounded-pill px-4 py-3 fs-6">Scan Complete</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container py-4 py-lg-5">
+    <div class="bg-white rounded-3 shadow-sm p-4 p-md-4 mb-2">
+      <h2 class="h5 text-secondary text-uppercase fw-semibold mb-3" style="letter-spacing: 0.06em;">
+        Pattern matches
+      </h2>
+      <div class="table-scroll-wrap">
         <div class="table-responsive">
-          <table border="0" class="dataframe table table-striped table-bordered mb-0">
+          <table class="table table-striped table-bordered table-hover mb-0 align-middle">
             <thead>
-              <tr style="text-align: right;">
-                <th></th>
-                <th>Score</th>
-              </tr>
               <tr>
-                <th>Vulnerability</th>
-                <th></th>
+                <th scope="col">Vulnerability</th>
+                <th scope="col" class="text-end">Score</th>
+                <th scope="col">Risk level</th>
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <th>memcpy</th>
-                <td>2499</td>
-              </tr>
-              <tr>
-                <th>eval(</th>
-                <td>2430</td>
-              </tr>
-              <tr>
-                <th>gets</th>
-                <td>1800</td>
-              </tr>
-              <tr>
-                <th>popen(</th>
-                <td>1428</td>
-              </tr>
-              <tr>
-                <th>Overflow</th>
-                <td>522</td>
-              </tr>
-              <tr>
-                <th>system(</th>
-                <td>275</td>
-              </tr>
-              <tr>
-                <th>strcpy</th>
-                <td>235</td>
-              </tr>
-              <tr>
-                <th>sprintf</th>
-                <td>164</td>
-              </tr>
-              <tr>
-                <th>RACE CONDITION</th>
-                <td>164</td>
-              </tr>
-              <tr>
-                <th>INTEGER OVERFLOW</th>
-                <td>72</td>
-              </tr>
+              <tr data-risk="High"><th scope="row">memcpy</th><td class="text-end fw-semibold">1770</td><td><span class="badge rounded-pill risk-badge-high">High</span></td></tr>
+<tr data-risk="High"><th scope="row">gets</th><td class="text-end fw-semibold">475</td><td><span class="badge rounded-pill risk-badge-high">High</span></td></tr>
+<tr data-risk="High"><th scope="row">strcpy</th><td class="text-end fw-semibold">290</td><td><span class="badge rounded-pill risk-badge-high">High</span></td></tr>
+<tr data-risk="High"><th scope="row">Overflow </th><td class="text-end fw-semibold">128</td><td><span class="badge rounded-pill risk-badge-high">High</span></td></tr>
+<tr data-risk="Medium"><th scope="row">system(</th><td class="text-end fw-semibold">100</td><td><span class="badge rounded-pill risk-badge-medium">Medium</span></td></tr>
+<tr data-risk="Medium"><th scope="row">sprintf</th><td class="text-end fw-semibold">96</td><td><span class="badge rounded-pill risk-badge-medium">Medium</span></td></tr>
+<tr data-risk="Medium"><th scope="row">DoS </th><td class="text-end fw-semibold">57</td><td><span class="badge rounded-pill risk-badge-medium">Medium</span></td></tr>
+<tr data-risk="Low"><th scope="row">strcat</th><td class="text-end fw-semibold">40</td><td><span class="badge rounded-pill risk-badge-low">Low</span></td></tr>
+<tr data-risk="Low"><th scope="row">BUFFER OVERFLOW</th><td class="text-end fw-semibold">35</td><td><span class="badge rounded-pill risk-badge-low">Low</span></td></tr>
+<tr data-risk="Low"><th scope="row">INTEGER OVERFLOW</th><td class="text-end fw-semibold">27</td><td><span class="badge rounded-pill risk-badge-low">Low</span></td></tr>
             </tbody>
           </table>
         </div>
       </div>
-      <div class="col-lg-5">
-        <div class="card border-primary shadow-sm h-100">
-          <div class="card-header bg-primary text-white fw-semibold">AI Executive Summary</div>
-          <div class="card-body">
-            <div id="ai-summary">
-              <pre class="mb-0 text-body" style="white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: 0.95rem;">Sample output. Run from the project root:
+    </div>
 
-python script.py --target github.com/OWNER/REPO
-
-to regenerate Data/index.html, Data/ai_summary.txt, and this summary from Gemini (requires GEMINI_API_KEY in .env).</pre>
-            </div>
-          </div>
-        </div>
+    <div class="card ai-summary-card border-0 shadow-sm mt-4">
+      <div class="card-header bg-dark text-white py-3 px-4 fs-5 fw-semibold">
+        🤖 AI Executive Summary
+      </div>
+      <div class="card-body p-4">
+        <div id="ai-summary" class="ai-summary-body">The scan results reveal a critical level of memory safety vulnerabilities, predominantly buffer overflows, stemming from the widespread use of unsafe functions such as `memcpy`, `gets`, and `strcpy`. These flaws, compounded by potential command injection via `system()`, present a high risk of remote code execution and system compromise. Consequently, users scanning potentially malicious or compromised targets face a substantial risk of having their systems completely compromised, leading to data exfiltration or operational disruption.</div>
       </div>
     </div>
-  </div>
+  </main>
+
+  <footer class="report-footer text-center text-muted small py-4 mt-auto">
+    Generated by MapLLMUse · 2026-05-12 01:04:28
+  </footer>
 </body>
 </html>
