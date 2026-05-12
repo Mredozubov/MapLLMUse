@@ -5,145 +5,137 @@ import io
 import os
 import argparse
 import re
+import google.generativeai as genai
 
-# ----------------------------
-# CONFIG
-# ----------------------------
+# --- CONFIGURATION ---
 REFERENCE_ZIP = 'project_data.zip'
 REFERENCE_CSV = 'all_c_cpp_release2.0.csv'
+# PASTE YOUR API KEY HERE:
+GEMINI_API_KEY = "AIzaSyDXtw4oqyuktVnfgo4tXum792M2ZPiWo2w" 
 
-# ----------------------------
-# CWE + FUNCTION PATTERNS (ENHANCED)
-# ----------------------------
+# --- PATTERNS ---
 CWE_PATTERNS = {
-    "buffer overflow": 5,
-    "sql injection": 5,
-    "command injection": 5,
-    "xss": 4,
-    "cross site scripting": 4,
-    "use after free": 5,
-    "race condition": 4,
-    "integer overflow": 3,
-    "path traversal": 4
+    "buffer overflow": 5, "sql injection": 5, "command injection": 5,
+    "xss": 4, "use after free": 5, "race condition": 4,
+    "integer overflow": 3, "path traversal": 4
 }
 
 DANGEROUS_FUNCTIONS = {
-    r"\bstrcpy\b": 5,
-    r"\bstrcat\b": 4,
-    r"\bgets\b": 5,
-    r"\bsprintf\b": 4,
-    r"\bsystem\s*\(": 5,
-    r"\bpopen\s*\(": 4,
-    r"\bmemcpy\b": 3,
-    r"\beval\s*\(": 5
+    r"\bstrcpy\b": 5, r"\bstrcat\b": 4, r"\bgets\b": 5,
+    r"\bsprintf\b": 4, r"\bsystem\s*\(": 5, r"\bpopen\s*\(": 4,
+    r"\bmemcpy\b": 3, r"\beval\s*\(": 5
 }
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--target", required=True)
 args = parser.parse_args()
 
+def get_ai_analysis(target, findings_summary):
+    """Fetches expert analysis from the Gemini 2.5 model."""
+    if not GEMINI_API_KEY or "YOUR_API_KEY" in GEMINI_API_KEY:
+        return "AI analysis skipped: No API Key detected."
+    
+    try:
+        genai.configure(api_key=GEMINI_API_KEY)
+        # UPDATED: Using the latest 2026 stable model to fix the 404 error
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        prompt = (f"Act as a Senior Security Architect. Analyze these scan results for {target}: "
+                  f"\n{findings_summary}\n"
+                  f"Provide a 3-sentence executive summary focusing on why these specific risks are dangerous for this repo.")
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"AI Analysis Error: {e}"
 
-# ----------------------------
-# ANALYSIS ENGINE
-# ----------------------------
-def analyze_content(content):
+def analyze_content(content, known_risks):
     content = content.lower()
     findings = []
-
-    # CWE keyword scan
+    # 1. Dataset Scan (Search for all 1,000+ CWE/CVE patterns)
+    for risk in known_risks:
+        risk_str = str(risk).lower()
+        count = content.count(risk_str)
+        if count > 0:
+            findings.append((risk, count))
+    # 2. CWE Keyword Scan
     for k, score in CWE_PATTERNS.items():
         if k in content:
-            findings.append((k, score))
-
-    # regex function scan
+            findings.append((k.upper(), score))
+    # 3. Regex Function Scan
     for pattern, score in DANGEROUS_FUNCTIONS.items():
         matches = re.findall(pattern, content)
         if matches:
-            findings.append((pattern, score * len(matches)))
-
+            findings.append((pattern.replace(r'\b', '').replace(r'\s*\(', '('), score * len(matches)))
     return findings
 
-
-# ----------------------------
-# GITHUB SCANNER
-# ----------------------------
-def scan_github(url):
-    print("Analyzing GitHub repository...")
-
-    zip_url = url.rstrip('/') + "/archive/refs/heads/main.zip"
-    r = requests.get(zip_url)
-
-    if r.status_code != 200:
-        zip_url = url.rstrip('/') + "/archive/refs/heads/master.zip"
-        r = requests.get(zip_url)
-
-    if r.status_code != 200:
-        raise Exception("Failed to download repo")
-
-    results = []
-
-    with zipfile.ZipFile(io.BytesIO(r.content)) as z:
-        for file in z.namelist():
-
-            if file.endswith(('.c', '.cpp', '.h', '.hpp', '.js', '.py')):
-                try:
-                    with z.open(file) as f:
-                        content = f.read().decode('utf-8', errors='ignore')
-                        results.extend(analyze_content(content))
-                except:
-                    pass
-
-    return results
-
-
-# ----------------------------
-# WEBSITE SCANNER
-# ----------------------------
-def scan_web(url):
-    r = requests.get(url, timeout=10)
-    return analyze_content(r.text)
-
-
-# ----------------------------
-# MAIN
-# ----------------------------
 def main():
-    print("CISC 4900: Security Risk Analysis")
-    print("Target:", args.target)
-
+    print("\n" + "="*50)
+    print("CISC 4900: ULTIMATE AI SECURITY SCANNER")
+    print("="*50)
     target = args.target if args.target.startswith("http") else "https://" + args.target
 
-    if "github.com" in target:
-        findings = scan_github(target)
-    else:
-        findings = scan_web(target)
+    try:
+        # LOAD DATASET (Now using MULTIPLE columns for max patterns)
+        known_risks = set()
+        if os.path.exists(REFERENCE_ZIP):
+            with zipfile.ZipFile(REFERENCE_ZIP, 'r') as z:
+                with z.open(REFERENCE_CSV) as f:
+                    # ENHANCED: Reading Classification + CWE ID + CVE ID for massive coverage
+                    ref_df = pd.read_csv(f, encoding='latin1', usecols=['vulnerability_classification', 'cwe_id', 'cve_id'])
+                    known_risks.update(ref_df['vulnerability_classification'].dropna().unique().tolist())
+                    known_risks.update(ref_df['cwe_id'].dropna().unique().tolist())
+                    known_risks.update(ref_df['cve_id'].dropna().unique().tolist())
+            print(f"[*] Reference Library Expanded: {len(known_risks)} unique patterns loaded.")
 
-    if not findings:
-        print("\nNo vulnerabilities detected.")
-        return
+        # SCANNING
+        all_findings = []
+        print(f"[*] Analyzing Source: {target}...")
+        zip_url = target.rstrip('/') + "/archive/refs/heads/main.zip"
+        r = requests.get(zip_url)
+        if r.status_code != 200:
+            r = requests.get(target.rstrip('/') + "/archive/refs/heads/master.zip")
+        
+        with zipfile.ZipFile(io.BytesIO(r.content)) as z:
+            for file in z.namelist():
+                if file.endswith(('.c', '.cpp', '.h', '.js', '.py')):
+                    with z.open(file) as f:
+                        all_findings.extend(analyze_content(f.read().decode('utf-8', errors='ignore'), known_risks))
 
-    df = pd.DataFrame(findings, columns=["Vulnerability", "Score"])
-    summary = df.groupby("Vulnerability").sum().sort_values("Score", ascending=False).head(10)
+        # RESULTS PROCESSING
+        df = pd.DataFrame(all_findings, columns=["Vulnerability", "Score"])
+        summary = df.groupby("Vulnerability").sum().sort_values("Score", ascending=False).head(10)
+        
+        # LLM INTEGRATION
+        print("[*] Requesting AI Expert Analysis (Gemini 2.5)...")
+        ai_report = get_ai_analysis(target, summary.to_string())
 
-    print("\nTOP SECURITY RISKS:")
-    print(summary)
+        # TERMINAL OUTPUT
+        print("\n" + "-"*30 + "\nTOP SECURITY RISKS:\n" + "-"*30)
+        print(summary)
+        print("\n" + "-"*30 + "\nAI EXECUTIVE SUMMARY:\n" + "-"*30)
+        print(ai_report + "\n" + "-"*30)
 
-    html = f"""
-    <html>
-    <head><title>Security Report</title></head>
-    <body>
-        <h2>Security Scan Report</h2>
-        <p><b>Target:</b> {target}</p>
-        {summary.to_html()}
-    </body>
-    </html>
-    """
+        # WEBSITE OUTPUT
+        html_content = f"""
+        <html>
+        <head><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"></head>
+        <body class="bg-light p-5"><div class="container bg-white shadow p-5 rounded">
+            <h1 class="text-primary mb-4 border-bottom">AI Security Report</h1>
+            <p>Target: <b>{target}</b></p>
+            <div class="row mt-5">
+                <div class="col-lg-7"><h3>Pattern Matches</h3>{summary.to_html(classes='table table-striped border')}</div>
+                <div class="col-lg-5"><div class="card border-primary h-100">
+                    <div class="card-header bg-primary text-white"><b>AI Risk Assessment</b></div>
+                    <div class="card-body"><p>{ai_report}</p></div>
+                </div></div>
+            </div>
+        </div></body></html>
+        """
+        with open("index.html", "w", encoding="utf-8") as f:
+            f.write(html_content)
+        print(f"✅ Report Updated: index.html")
 
-    with open("index.html", "w") as f:
-        f.write(html)
-
-    print("\nReport generated: index.html")
-
+    except Exception as e:
+        print(f"Error: {e}")
 
 if __name__ == "__main__":
     main()
